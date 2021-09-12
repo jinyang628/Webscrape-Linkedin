@@ -8,12 +8,11 @@ browser = webdriver.Chrome(ChromeDriverManager().install())
 
 def webscrape_Linkedin():
     global long_job_title_list
+    global company_restrictions_list
     global job_title_criteria
     global company_criteria
 
     long_job_title_list = False
-    job_title_criteria = True
-    company_criteria = True
 
     exit_1 = False
     while exit_1 == False:
@@ -49,8 +48,10 @@ If you wish to see at least one of the keywords appear in the job title, enter "
 """)
                 if job_title_restrictions_question == "1":
                     keyword_necessary = True
+                    exit_3 = True
                 else:
                     keyword_necessary = False
+                    exit_3 = True
     exit_4 = False
     while exit_4 == False:
         company_restrictions = input("""
@@ -98,8 +99,12 @@ Enter '/' if you have listed all your desired keywords.
         jobs = bowl.find_all("li")
         count = 0
         for job in jobs:
+            job_title_criteria = True
+            company_criteria = True
+
+            #check user inputs slash as first input outcome
             job_title = job.find("h3", class_ = "base-search-card__title").text.strip()
-            if job_title_restrictions == "1":
+            if "1" == job_title_restrictions:
                 job_title_words = job_title.split(" ")
                 if long_job_title_list == True:
                     if keyword_necessary == True:
@@ -117,26 +122,34 @@ Enter '/' if you have listed all your desired keywords.
                                 continue
                         if count_JTF < 1:
                             job_title_criteria = False
-                else:
-                    for word in job_title_words:
-                        if word.lower() == job_title_restrictions_list[0]:
-                            job_title_criteria = True
-                            break
                         else:
-                            job_title_criteria = False
-                            continue
+                            job_title_criteria = True
+                else:
+                    if len(job_title_restrictions_list) != 0:
+                        for word in job_title_words:
+                            if word.lower() == job_title_restrictions_list[0]:
+                                job_title_criteria = True
+                                break
+                            else:
+                                job_title_criteria = False
+                                continue
+                    else:
+                        job_title_criteria = True
             if job_title_criteria == False:
                 continue
             company_name = job.find("h4", class_ = "base-search-card__subtitle").text.strip()
-            if company_restrictions == "1":
+            if "1" == company_restrictions:
                 company_words = company_name.split(" ")
-                for word in company_words:
-                    if word.lower() in company_restrictions_list:
-                        company_criteria = True
-                        break
-                    else:
-                        company_criteria = False
-                        continue
+                if len(company_restrictions_list) != 0:
+                    for word in company_words:
+                        if word.lower() in company_restrictions_list:
+                            company_criteria = True
+                            break
+                        else:
+                            company_criteria = False
+                            continue
+                else:
+                    company_criteria = True
             if company_criteria == False:
                 continue
             job_link = job.a["href"]
@@ -154,8 +167,10 @@ Enter '/' if you have listed all your desired keywords.
                     state_of_hiring = "Early Applications"
                 print(f"State of hiring: {state_of_hiring}")
             print()
-
+        if count == 0:
+            print("There are no available jobs with the requirements that you have indicated.")
     else:
         print(f"Website not available: {page.status_code}")
 
 webscrape_Linkedin()
+
