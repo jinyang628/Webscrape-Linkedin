@@ -2,80 +2,175 @@ import requests
 from bs4 import BeautifulSoup
 from selenium import webdriver
 import time
-from openpyxl import Workbook, load_workbook
-import pandas as pd
 
 from webdriver_manager.chrome import ChromeDriverManager
 browser = webdriver.Chrome(ChromeDriverManager().install())
 
-def webscrape_shopee_glenfiddich_18():
-    global check_litre
-    global count
-    global page
+def webscrape_Linkedin():
+    global long_job_title_list
+    global company_restrictions_list
+    global job_title_criteria
+    global company_criteria
 
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Data"
-    ws.append(["Serial Number", "Price", "Mililitres", "Link"])
-    wb.save('Glenfiddich 18 data.xlsx')
+    long_job_title_list = False
 
-    url = "https://www.lazada.sg/catalog/?_keyori=ss&from=input&page=1&q=glenfiddich%2018&spm=a2o42.searchlist.search.go.1c4e221fu9ZyOv"
+    exit_1 = False
+    while exit_1 == False:
+        job_title_restrictions = input("""
+Are you looking for a specific type of job? 
+Enter '1' to indicate keyword restrictions. 
+Enter '2' if you are open to all job types. 
+""")
+        if job_title_restrictions == "1" or job_title_restrictions == "2":
+            exit_1 = True
+        else:
+            print("Invalid input")
+    if "1" == job_title_restrictions:
+        exit_2 = False
+        job_title_restrictions_list = []
+        while exit_2 == False:
+            user_job_title_restrictions = input("""
+Enter a keyword that must appear in the job title.
+Enter '/' if you have listed all your desired keywords.
+""")
+            if "/" == user_job_title_restrictions:
+                exit_2 = True
+            else:
+                job_title_restrictions_list.append(user_job_title_restrictions.strip().lower())
+        if len(job_title_restrictions_list) != 1 and len(job_title_restrictions_list) != 0: #user can just input slash as their first input, need to account for it
+            long_job_title_list = True
+            exit_3 = False
+            while exit_3 == False:
+                job_title_restrictions_question = input("""
+You have entered more than one keyword.
+If you wish to see all the keywords appear in the job title, enter "1".
+If you wish to see at least one of the keywords appear in the job title, enter "2".
+""")
+                if job_title_restrictions_question == "1":
+                    keyword_necessary = True
+                    exit_3 = True
+                else:
+                    keyword_necessary = False
+                    exit_3 = True
+    exit_4 = False
+    while exit_4 == False:
+        company_restrictions = input("""
+Are you looking for a job at a specific company?
+Enter '1' to indicate keyword restrictions.
+Enter '2' if you are open to working at any company.
+""")
+        if company_restrictions == "1" or company_restrictions == "2":
+            exit_4 = True
+        else:
+            print("Invalid input")
+    if "1" == company_restrictions:
+        exit_5 = False
+        company_restrictions_list = []
+        while exit_5 == False:
+            user_company_restrictions = input("""
+Enter a keyword that must appear in the company name.
+Enter '/' if you have listed all your desired keywords.
+""")
+            if "/" == user_company_restrictions:
+                exit_5 = True
+            else:
+                company_restrictions_list.append(user_company_restrictions.strip().lower())
+    print()
+    number_of_pages = int(input("Enter number of pages to scrape: "))
+    url = "https://sg.linkedin.com/jobs/jobs-in-singapore?trk=homepage-basic_intent-module-jobs&position=1&pageNum=0"
     page = requests.get(url)
     browser.get(url)
     if page.status_code == 200:
-        #Above 18 button (turns out it wasn't necessary for the code to run)
-        #browser.find_element_by_xpath("/html/body/div[4]/div/div[2]/div/div[2]/div/div/div[2]/button[1]/span").click()
+        if number_of_pages != 1:
+            previous_height = 0
+            for i in range(0, number_of_pages):
+                browser.execute_script('window.scrollTo(0, document.body.scrollHeight);')
+                height = browser.execute_script("return document.body.scrollHeight")
+                if height == previous_height:
+                    try:
+                        browser.find_element_by_xpath("//*[@id='main-content']/section/button").click()
+                        #copy and paste the xpath from the inspect section
+                    except:
+                        break
+                previous_height = height
+                time.sleep(1.5)
+        soup = BeautifulSoup(browser.page_source, "html.parser")
+        bowl = soup.find(class_ = "jobs-search__results-list")
+        jobs = bowl.find_all("li")
         count = 0
-        page_count = 1
-        main_scraping_code()
-        time.sleep(1)
-        exit = False
-        while exit == False:
-            page_count += 1
-            try:
-                browser.find_element_by_xpath("/html/body/div[3]/div/div[2]/div[1]/div/div[1]/div[4]/div/ul/li[5]")
-                new_url = url.replace("page=1", f"page={str(page_count)}")
-                page = requests.get(new_url)
-                browser.get(new_url)
-                time.sleep(1)
-                main_scraping_code()
-            except:
-                print("All scrapped")
-                exit = True
+        for job in jobs:
+            job_title_criteria = True
+            company_criteria = True
 
+            #check user inputs slash as first input outcome
+            job_title = job.find("h3", class_ = "base-search-card__title").text.strip()
+            if "1" == job_title_restrictions:
+                job_title_words = job_title.split(" ")
+                if long_job_title_list == True:
+                    if keyword_necessary == True:
+                        for wordT in job_title_words:
+                            if wordT.lower() in job_title_restrictions_list:
+                                continue
+                            else:
+                                job_title_criteria = False
+                    else:
+                        count_JTF = 0
+                        for wordF in job_title_words:
+                            if wordF.lower() in job_title_restrictions_list:
+                                count_JTF += 1
+                            else:
+                                continue
+                        if count_JTF < 1:
+                            job_title_criteria = False
+                        else:
+                            job_title_criteria = True
+                else:
+                    if len(job_title_restrictions_list) != 0:
+                        for word in job_title_words:
+                            if word.lower() == job_title_restrictions_list[0]:
+                                job_title_criteria = True
+                                break
+                            else:
+                                job_title_criteria = False
+                                continue
+                    else:
+                        job_title_criteria = True
+            if job_title_criteria == False:
+                continue
+            company_name = job.find("h4", class_ = "base-search-card__subtitle").text.strip()
+            if "1" == company_restrictions:
+                company_words = company_name.split(" ")
+                if len(company_restrictions_list) != 0:
+                    for word in company_words:
+                        if word.lower() in company_restrictions_list:
+                            company_criteria = True
+                            break
+                        else:
+                            company_criteria = False
+                            continue
+                else:
+                    company_criteria = True
+            if company_criteria == False:
+                continue
+            job_link = job.a["href"]
+            date_of_posting = job.find("time").text.strip()
+            state_of_hiring = job.find("span", class_="result-benefits__text")
+            count += 1
+            print(f"#{str(count)}")
+            print(f"Job Title: {job_title}")
+            print(f"Company Name: {company_name}")
+            print(f"Link: {job_link}")
+            print(f"Date of posting: {date_of_posting}")
+            if state_of_hiring != None:
+                state_of_hiring = state_of_hiring.text.strip()
+                if state_of_hiring == "Be an early applicant":
+                    state_of_hiring = "Early Applications"
+                print(f"State of hiring: {state_of_hiring}")
+            print()
+        if count == 0:
+            print("There are no available jobs with the requirements that you have indicated.")
     else:
         print(f"Website not available: {page.status_code}")
 
-def main_scraping_code():
-    global page
-    global count
+webscrape_Linkedin()
 
-    soup = BeautifulSoup(browser.page_source, "html.parser")
-    items = soup.find_all("div", class_="_3VkVO")
-    for whiskey in items:
-        description = whiskey.find("div", class_="_8JShU")
-        name = description.text.strip()
-        if "18" in name:
-            count += 1
-            check_litre = None
-            words = name.split(" ")
-            for word in words:
-                if "ml" == word[len(word) - 2:] or "cl" == word[len(word) - 2:]:
-                    check_litre = word
-            link = whiskey.find("a", href=True)
-            price = whiskey.find("span", class_="Q78Jz").text
-            print(f"#{count}")
-            print(f"Price: {price}")
-            if check_litre == None:
-                check_litre = "N.A."
-            print(f"Mililitre: {check_litre}")
-            print(f"Link: {'https://' + link['href'][2:]}")
-            print()
-            wb = load_workbook('Glenfiddich 18 data.xlsx')
-            ws = wb.active
-            ws.append([count, price, check_litre, 'https://' + link['href'][2:]])
-            wb.save('Glenfiddich 18 data.xlsx')
-        else:
-            continue
-
-webscrape_shopee_glenfiddich_18()
